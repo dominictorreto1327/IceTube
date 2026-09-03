@@ -1,0 +1,24 @@
+.vs/
+**/bin/
+**/obj/
+*.user
+*.suo
+
+# Generated portable releases and downloaded archives
+release/
+downloads/
+
+# Portable third-party binaries are assembled into release/, not committed
+tools/**/*.exe
+tools/**/*.dll
+tools/**/*.7z
+tools/**/*.zip
+!tools/**/.gitkeep
+
+# Runtime state
+cache/*
+!cache/.gitkeep
+data/*
+!data/.gitkeep
+logs/*
+!logs/.gitkeep
