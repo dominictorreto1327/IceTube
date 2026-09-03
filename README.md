@@ -11,12 +11,12 @@ IceTube is a lightweight YouTube client designed for very old Windows PCs.
         ↓
 yt-dlp + QuickJS 解析
         ↓
-选择 H.264/AVC ≤480p、≤30fps
+优先选择带音频的 H.264/AVC MP4 ≤480p、≤30fps
         ↓
-mpv 直接播放视频流与音频流
+.NET 网络流桥接 → mpv 标准输入播放
 ```
 
-IceTube 不转码视频。视频和音频分离时，两个原始 URL 会分别交给 mpv 解码，不会执行 AV1/VP9 到 H.264 的实时转换。
+IceTube 不转码也不把视频保存到磁盘。对普通公开视频，程序优先选择单文件 H.264/AAC 流，由 .NET 网络层直接送入 mpv；这样可避开部分旧版 FFmpeg/mpv 无法连接 YouTube 媒体 CDN 的问题。没有合并流时才回退到视频、音频分离播放。
 
 ## 使用 L460 测试版
 
@@ -45,7 +45,7 @@ cache/
 logs/
 ```
 
-所有工具路径都相对于 `IceTube.exe`，不依赖系统 PATH、注册表、Git、Visual Studio、Python 或开发机绝对路径。首次启动会在 `data/settings.json` 写入默认 L460 配置。日志最多保留 5 个、单个约 256 KB。
+所有工具路径都相对于 `IceTube.exe`，不依赖系统 PATH、注册表、Git、Visual Studio、Python 或开发机绝对路径。首次启动会在 `data/settings.json` 写入默认 L460 配置。IceTube 日志最多保留 5 个、单个约 256 KB；mpv 最近一次运行信息覆盖写入 `logs/mpv-last.log`。
 
 ## 构建
 
@@ -60,6 +60,7 @@ logs/
 - 固定的 `yt-dlp 2026.08.19` 是官方 Windows 可执行文件切换到 Windows 10+ 之前的版本。不要在 L460 上盲目更新；YouTube 改版后它可能需要替换。
 - QuickJS-NG 很轻，但上游没有对 Windows 8.1 作正式兼容承诺。若 `qjs.exe` 在 L460 无法启动，解析层可替换，不能据此假定整个方案已失败。
 - mpv 使用老显卡兼容优先的 `direct3d` 输出，并允许回退。Intel GMA 3100 通常无法硬解 H.264，实际解码仍主要依赖双核 CPU。
+- 标准输入流模式不支持拖动进度条随机跳转；v0.1 优先保证低配置电脑能够出现画面并连续播放。
 - FFmpeg 仅供 yt-dlp 发现、合流或容器处理；IceTube v0.1 的在线播放路径不调用实时视频转码。
 - 私人视频、地区限制、登录后可见内容和某些 YouTube 挑战可能无法解析；v0.1 不提供登录或 Cookie 导入。
 - 由于固定旧版本以换取 Windows 8.1 兼容性，这些工具不会自动获得后续安全更新。只播放可信 URL，并在维护版本中按实机结果更新依赖。

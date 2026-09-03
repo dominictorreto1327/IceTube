@@ -137,7 +137,7 @@ namespace IceTube
                 _titleValue.Text = video.Title;
                 _formatValue.Text = video.DisplayFormat;
                 _player.Play(video);
-                SetStatus("Playing — 已交给 mpv 播放。", false);
+                SetStatus("Playing — mpv 已启动，正在缓冲或播放。", false);
                 _stopButton.Enabled = true;
             }
             catch (OperationCanceledException)
@@ -186,6 +186,10 @@ namespace IceTube
                 else if (eventArgs.ExitCode == 0)
                 {
                     SetStatus("Ready — 播放结束。", false);
+                }
+                else if (!string.IsNullOrWhiteSpace(eventArgs.ErrorMessage))
+                {
+                    SetStatus("Error — " + eventArgs.ErrorMessage, true);
                 }
                 else
                 {

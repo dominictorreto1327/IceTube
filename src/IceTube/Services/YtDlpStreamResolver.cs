@@ -48,6 +48,7 @@ namespace IceTube.Services
                 "--socket-timeout", "20",
                 "--retries", "2",
                 "--ffmpeg-location", _tools.FfmpegDirectory,
+                "--no-js-runtimes",
                 "--js-runtimes", "quickjs:" + _tools.JavaScriptRuntimePath,
                 "--",
                 sourceUri.AbsoluteUri
@@ -119,8 +120,9 @@ namespace IceTube.Services
 
             FormatCandidate video = candidates
                 .Where(IsAllowedVideo)
-                .OrderByDescending(item => item.Height)
+                .OrderByDescending(item => item.HasAudio && item.IsMp4)
                 .ThenByDescending(item => item.HasAudio)
+                .ThenByDescending(item => item.Height)
                 .ThenByDescending(item => item.IsMp4)
                 .ThenByDescending(item => item.Fps)
                 .ThenBy(item => item.VideoBitrate > 0 ? item.VideoBitrate : double.MaxValue)

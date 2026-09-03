@@ -11,7 +11,9 @@ IceTube v0.1 pins portable tools instead of reading them from PATH. The release 
 
 The mpv archive's matching `d3dcompiler_43.dll` is shipped beside `mpv.exe` for its legacy renderer fallback. On Windows 8.1, install all Windows updates, including Microsoft's Universal C Runtime update (KB2999226). Binary header inspection confirms the bundled x64 executables target Windows subsystem versions no newer than 6.0; mpv's imported `PathCchCanonicalizeEx` is documented by Microsoft as available from Windows 8. The final authority remains a test on the L460 itself.
 
-yt-dlp's official EJS documentation supports QuickJS and QuickJS-NG when enabled through `--js-runtimes quickjs:<path>`. IceTube passes an explicit path to `tools/js-runtime/qjs.exe`; it does not require PATH or Node.js.
+yt-dlp's official EJS documentation supports QuickJS and QuickJS-NG when enabled through `--js-runtimes quickjs:<path>`. IceTube first disables default runtimes with `--no-js-runtimes`, then passes the explicit portable path to `tools/js-runtime/qjs.exe`; it does not require PATH, Deno, or Node.js.
+
+IceTube prefers a progressive H.264/AAC MP4 stream and transfers it with .NET's HTTP stack into mpv's standard input. This is a byte-for-byte transport bridge: no video conversion and no persistent media file. It was selected after the same Google Video URL succeeded through .NET but timed out in the pinned libavformat network stack on the development machine.
 
 ## Integrity
 
