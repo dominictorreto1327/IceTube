@@ -1,6 +1,6 @@
 # Third-party dependencies
 
-IceTube v0.1 pins portable tools instead of reading them from PATH. The release bundle contains only the files needed at runtime.
+IceTube v0.1.1 pins portable tools instead of reading them from PATH. The release bundle contains only the files needed at runtime.
 
 | Component | Pinned version/build | Upstream source | Windows 8.1 status |
 |---|---|---|---|
@@ -13,7 +13,7 @@ The mpv archive's matching `d3dcompiler_43.dll` is shipped beside `mpv.exe` for 
 
 yt-dlp's official EJS documentation supports QuickJS and QuickJS-NG when enabled through `--js-runtimes quickjs:<path>`. IceTube first disables default runtimes with `--no-js-runtimes`, then passes the explicit portable path to `tools/js-runtime/qjs.exe`; it does not require PATH, Deno, or Node.js.
 
-IceTube prefers a progressive H.264/AAC MP4 stream and transfers it with .NET's HTTP stack into mpv's standard input. This is a byte-for-byte transport bridge: no video conversion and no persistent media file. It was selected after the same Google Video URL succeeded through .NET but timed out in the pinned libavformat network stack on the development machine.
+IceTube transfers both progressive media and separate video/audio streams through a loopback-only HTTP proxy. .NET performs remote HTTPS requests and mpv connects only to `127.0.0.1`. The proxy forwards byte ranges and content metadata without video conversion or persistent media files. This avoids the pinned libavformat network stack for every playback format, not only progressive MP4.
 
 ## Integrity
 

@@ -51,6 +51,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Services\IStreamResolver.cs" />
+    <Compile Include="Services\LocalMediaProxy.cs" />
     <Compile Include="Services\PlayerService.cs" />
     <Compile Include="Services\ProcessJob.cs" />
     <Compile Include="Services\ProcessRunner.cs" />

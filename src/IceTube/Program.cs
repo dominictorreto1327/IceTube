@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using System.Windows.Forms;
 using IceTube.Logging;
 
@@ -9,6 +10,10 @@ namespace IceTube
         [STAThread]
         private static void Main()
         {
+            // Do not inherit an old machine's legacy .NET TLS defaults when
+            // connecting to YouTube's HTTPS media endpoints.
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+            ServicePointManager.DefaultConnectionLimit = 8;
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 

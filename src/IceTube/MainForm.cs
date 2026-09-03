@@ -26,7 +26,7 @@ namespace IceTube
 
         public MainForm()
         {
-            Text = "IceTube v0.1";
+            Text = "IceTube v0.1.1";
             ClientSize = new Size(620, 286);
             MinimumSize = new Size(520, 325);
             StartPosition = FormStartPosition.CenterScreen;
@@ -37,7 +37,7 @@ namespace IceTube
 
             Label heading = new Label
             {
-                Text = "IceTube v0.1 — L460 Mode",
+                Text = "IceTube v0.1.1 — L460 Mode",
                 AutoSize = true,
                 Font = new Font(Font, FontStyle.Bold),
                 Location = new Point(18, 18)

@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $solution = Join-Path $root 'IceTube.sln'
-$output = Join-Path $root 'release\IceTube-v0.1-win81-x64'
+$output = Join-Path $root 'release\IceTube-v0.1.1-win81-x64'
 $msbuild = 'C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe'
 
 if (-not (Test-Path -LiteralPath $msbuild)) { throw 'MSBuild 17 was not found.' }
