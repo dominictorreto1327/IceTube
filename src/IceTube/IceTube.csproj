@@ -43,6 +43,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Configuration\AppSettings.cs" />
+    <Compile Include="Controls\VideoSurface.cs" />
     <Compile Include="Logging\LogService.cs" />
     <Compile Include="MainForm.cs">
       <SubType>Form</SubType>

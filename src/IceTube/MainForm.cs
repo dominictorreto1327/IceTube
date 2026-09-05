@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using IceTube.Configuration;
+using IceTube.Controls;
 using IceTube.Logging;
 using IceTube.Models;
 using IceTube.Services;
@@ -20,24 +21,26 @@ namespace IceTube
         private readonly Label _titleValue;
         private readonly Label _formatValue;
         private readonly Label _statusValue;
+        private readonly VideoSurface _videoSurface;
         private readonly IStreamResolver _resolver;
         private readonly PlayerService _player;
         private CancellationTokenSource _resolveCancellation;
+        private int _playbackGeneration;
 
         public MainForm()
         {
-            Text = "IceTube v0.1.1";
-            ClientSize = new Size(620, 286);
-            MinimumSize = new Size(520, 325);
+            Text = "IceTube v0.2.0";
+            ClientSize = new Size(760, 688);
+            MinimumSize = new Size(520, 520);
             StartPosition = FormStartPosition.CenterScreen;
             Font = SystemFonts.MessageBoxFont;
             AutoScaleMode = AutoScaleMode.Dpi;
             FormBorderStyle = FormBorderStyle.Sizable;
-            MaximizeBox = false;
+            MaximizeBox = true;
 
             Label heading = new Label
             {
-                Text = "IceTube v0.1.1 — L460 Mode",
+                Text = "IceTube v0.2.0 — L460 Mode",
                 AutoSize = true,
                 Font = new Font(Font, FontStyle.Bold),
                 Location = new Point(18, 18)
@@ -79,11 +82,31 @@ namespace IceTube
                 Height = 40
             };
 
-            Controls.AddRange(new Control[]
+            Panel header = new Panel { Dock = DockStyle.Top, Height = 152, Width = 620 };
+            header.Controls.AddRange(new Control[]
             {
-                heading, urlLabel, _urlTextBox, _playButton, _stopButton,
-                titleLabel, _titleValue, formatLabel, _formatValue, statusLabel, _statusValue
+                heading, urlLabel, _urlTextBox, _playButton, _stopButton
             });
+            Panel footer = new Panel { Dock = DockStyle.Bottom, Height = 120, Width = 620 };
+            foreach (Control control in new Control[]
+                { titleLabel, _titleValue, formatLabel, _formatValue, statusLabel, _statusValue })
+            {
+                control.Top -= 150;
+                footer.Controls.Add(control);
+            }
+            Panel videoArea = new Panel { Dock = DockStyle.Fill, Padding = new Padding(18, 0, 18, 0) };
+            _videoSurface = new VideoSurface { Name = "VideoSurface" };
+            videoArea.Controls.Add(_videoSurface);
+            videoArea.Layout += (sender, args) =>
+            {
+                Rectangle space = videoArea.DisplayRectangle;
+                Rectangle bounds = VideoSurface.FitBounds(space.Size);
+                bounds.Offset(space.Location);
+                _videoSurface.Bounds = bounds;
+            };
+            Controls.Add(videoArea);
+            Controls.Add(footer);
+            Controls.Add(header);
 
             string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
             AppSettings settings = AppSettings.LoadOrCreate(baseDirectory);
@@ -123,8 +146,10 @@ namespace IceTube
             }
 
             CancelResolution();
+            int generation = ++_playbackGeneration;
             _player.Stop();
-            _resolveCancellation = new CancellationTokenSource();
+            CancellationTokenSource cancellation = new CancellationTokenSource();
+            _resolveCancellation = cancellation;
             _playButton.Enabled = false;
             _stopButton.Enabled = true;
             _titleValue.Text = "正在获取视频信息…";
@@ -133,40 +158,49 @@ namespace IceTube
 
             try
             {
-                VideoInfo video = await _resolver.ResolveAsync(url, _resolveCancellation.Token);
+                VideoInfo video = await _resolver.ResolveAsync(url, cancellation.Token);
+                if (generation != _playbackGeneration || IsDisposed || Disposing) return;
                 _titleValue.Text = video.Title;
                 _formatValue.Text = video.DisplayFormat;
-                _player.Play(video);
-                SetStatus("Playing — mpv 已启动，正在缓冲或播放。", false);
+                if (IsDisposed || Disposing) return;
+                _player.Play(video, _videoSurface.Handle);
+                SetStatus("Playing — 正在缓冲或播放。", false);
                 _stopButton.Enabled = true;
             }
             catch (OperationCanceledException)
             {
+                if (generation != _playbackGeneration || IsDisposed || Disposing) return;
                 SetStatus("Ready — 已取消。", false);
                 _stopButton.Enabled = false;
             }
             catch (StreamResolutionException ex)
             {
+                if (generation != _playbackGeneration || IsDisposed || Disposing) return;
                 LogService.Error("Stream resolution failed.", ex);
                 SetStatus("Error — " + ex.Message, true);
                 _stopButton.Enabled = false;
             }
             catch (Exception ex)
             {
+                if (generation != _playbackGeneration || IsDisposed || Disposing) return;
                 LogService.Error("Playback start failed.", ex);
                 SetStatus("Error — 无法启动播放：" + ex.Message, true);
                 _stopButton.Enabled = false;
             }
             finally
             {
-                _playButton.Enabled = true;
+                if (ReferenceEquals(_resolveCancellation, cancellation)) _resolveCancellation = null;
+                cancellation.Dispose();
+                if (generation == _playbackGeneration && !IsDisposed && !Disposing) _playButton.Enabled = true;
             }
         }
 
         private void StopPlayback()
         {
+            ++_playbackGeneration;
             CancelResolution();
             _player.Stop();
+            _videoSurface.Invalidate();
             _stopButton.Enabled = false;
             _playButton.Enabled = true;
             SetStatus("Ready — 播放已停止。", false);
@@ -174,9 +208,14 @@ namespace IceTube
 
         private void PlayerOnExited(object sender, PlayerExitedEventArgs eventArgs)
         {
-            if (IsDisposed || !IsHandleCreated) return;
+            if (eventArgs.WasStopped || IsDisposed || !IsHandleCreated) return;
+            int generation = _playbackGeneration;
             BeginInvoke((Action)(() =>
             {
+                // A queued exit notification from the preceding video must not
+                // reset a newly started playback or a new resolution request.
+                if (IsDisposed || Disposing || generation != _playbackGeneration || _player.IsPlaying) return;
+                _videoSurface.Invalidate();
                 _stopButton.Enabled = false;
                 _playButton.Enabled = true;
                 if (eventArgs.WasStopped)
@@ -216,11 +255,12 @@ namespace IceTube
             CancellationTokenSource cancellation = Interlocked.Exchange(ref _resolveCancellation, null);
             if (cancellation == null) return;
             cancellation.Cancel();
-            cancellation.Dispose();
+            // The owning PlayAsync disposes it after the resolver has unwound.
         }
 
         private void MainFormOnClosing(object sender, FormClosingEventArgs eventArgs)
         {
+            ++_playbackGeneration;
             CancelResolution();
             _player.Dispose();
         }

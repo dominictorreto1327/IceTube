@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Globalization;
+using System.Runtime.InteropServices;
 using IceTube.Logging;
 using IceTube.Models;
 
@@ -28,6 +30,7 @@ namespace IceTube.Services
         private Process _process;
         private ProcessJob _job;
         private LocalMediaProxy _mediaProxy;
+        private IntPtr _videoHost;
         private bool _stopRequested;
         private bool _disposed;
 
@@ -49,8 +52,11 @@ namespace IceTube.Services
             }
         }
 
-        public void Play(VideoInfo video)
+        public void Play(VideoInfo video, IntPtr videoHost)
         {
+            ThrowIfDisposed();
+            if (videoHost == IntPtr.Zero || !IsWindow(videoHost))
+                throw new ArgumentException("内嵌播放区域尚未就绪。", nameof(videoHost));
             if (video == null) throw new ArgumentNullException(nameof(video));
             if (string.IsNullOrWhiteSpace(video.VideoStreamUrl))
                 throw new InvalidOperationException("没有可播放的视频流。");
@@ -69,6 +75,14 @@ namespace IceTube.Services
             {
                 "--no-config",
                 "--force-window=immediate",
+                "--wid=" + unchecked((uint)videoHost.ToInt64()).ToString(CultureInfo.InvariantCulture),
+                "--keepaspect=yes",
+                "--keepaspect-window=no",
+                "--video-unscaled=no",
+                "--panscan=0",
+                "--video-zoom=0",
+                "--border=no",
+                "--fullscreen=no",
                 "--terminal=no",
                 "--profile=fast",
                 "--vo=direct3d,gpu,",
@@ -110,6 +124,7 @@ namespace IceTube.Services
                 _process = process;
                 _job = job;
                 _mediaProxy = mediaProxy;
+                _videoHost = videoHost;
                 try
                 {
                     if (!process.Start()) throw new InvalidOperationException("mpv 没有启动。");
@@ -120,6 +135,7 @@ namespace IceTube.Services
                     _process = null;
                     _job = null;
                     _mediaProxy = null;
+                    _videoHost = IntPtr.Zero;
                     process.Dispose();
                     job.Dispose();
                     mediaProxy.Dispose();
@@ -133,19 +149,32 @@ namespace IceTube.Services
         public void Stop()
         {
             Process process;
+            IntPtr host;
             lock (_sync)
             {
                 process = _process;
                 if (process == null) return;
                 _stopRequested = true;
+                host = _videoHost;
             }
 
             try
             {
                 if (!process.HasExited)
                 {
-                    process.CloseMainWindow();
-                    if (!process.WaitForExit(2000)) process.Kill();
+                    // An embedded mpv has no top-level MainWindow. Close its
+                    // child window, never the parent IceTube form.
+                    for (IntPtr child = GetWindow(host, 5); child != IntPtr.Zero; child = GetWindow(child, 2))
+                    {
+                        uint processId;
+                        GetWindowThreadProcessId(child, out processId);
+                        if (processId == process.Id) PostMessage(child, 0x0010, IntPtr.Zero, IntPtr.Zero);
+                    }
+                    if (!process.WaitForExit(1000))
+                    {
+                        process.Kill();
+                        process.WaitForExit(1000);
+                    }
                 }
             }
             catch
@@ -187,6 +216,7 @@ namespace IceTube.Services
             {
                 if (!ReferenceEquals(_process, process)) return;
                 _process = null;
+                _videoHost = IntPtr.Zero;
                 job = _job;
                 _job = null;
                 mediaProxy = _mediaProxy;
@@ -204,6 +234,15 @@ namespace IceTube.Services
             value = value.Replace('\r', ' ').Replace('\n', ' ');
             return value.Length <= 100 ? value : value.Substring(0, 100);
         }
+
+        [DllImport("user32.dll")]
+        private static extern bool IsWindow(IntPtr window);
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetWindow(IntPtr window, uint command);
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+        [DllImport("user32.dll")]
+        private static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
 
         private void ThrowIfDisposed()
         {
